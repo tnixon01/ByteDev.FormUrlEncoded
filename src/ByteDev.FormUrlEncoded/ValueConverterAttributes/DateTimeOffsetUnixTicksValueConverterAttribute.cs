@@ -7,7 +7,7 @@ namespace ByteDev.FormUrlEncoded.ValueConverterAttributes
     /// <see href="https://learn.microsoft.com/en-us/dotnet/api/system.datetime.ticks">Ticks</see>
     /// and <see cref="DateTimeOffset"/> types.
     /// </summary>
-    public class DateTimeOffsetUnixTicksValueConverter : FormUrlEncodedValueConverterAttribute
+    public class DateTimeOffsetUnixTicksFormUrlValueConverterAttribute : FormUrlEncodedValueConverterAttribute
     {
         public override object ConvertFromString(string value)
         {

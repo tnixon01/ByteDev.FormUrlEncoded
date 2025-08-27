@@ -8,7 +8,7 @@ namespace ByteDev.FormUrlEncoded.ValueConverterAttributes
     /// <see href="https://www.iso.org/iso-8601-date-and-time-format.html">ISO8601</see>-formatted string 
     /// and <see cref="DateTimeOffset"/> types.
     /// </summary>
-    public class DateTimeOffsetIso8601ValueConverter : FormUrlEncodedValueConverterAttribute
+    public class DateTimeOffsetIso8601FormUrlValueConverterAttribute : FormUrlEncodedValueConverterAttribute
     {
         public override object ConvertFromString(string value)
         {

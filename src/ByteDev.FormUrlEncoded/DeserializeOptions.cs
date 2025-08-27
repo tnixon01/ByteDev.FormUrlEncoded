@@ -1,4 +1,7 @@
-﻿namespace ByteDev.FormUrlEncoded
+﻿using System;
+using System.Collections;
+
+namespace ByteDev.FormUrlEncoded
 {
     /// <summary>
     /// Represents options when deserializing.
@@ -22,5 +25,7 @@
         /// Default handling is by number.
         /// </summary>
         public EnumHandling EnumHandling { get; set; } = EnumHandling.Number;
+
+        public System.StringComparer StringComparer { get; set; } = System.StringComparer.Ordinal;
     }
 }

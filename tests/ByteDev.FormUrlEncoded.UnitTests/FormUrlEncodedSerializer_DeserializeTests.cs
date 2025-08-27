@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Linq;
+using System.Reflection;
+using System.Reflection.Metadata;
 using ByteDev.Collections;
 using ByteDev.FormUrlEncoded.UnitTests.TestObjects;
 using ByteDev.FormUrlEncoded.UnitTests.TestObjects.AttributeObjects;
@@ -8,7 +10,7 @@ using NUnit.Framework;
 namespace ByteDev.FormUrlEncoded.UnitTests
 {
     [TestFixture]
-    public class FormUrlEncodedSerializerDeserializeTests
+    public class FormUrlEncodedSerializer_DeserializeTests
     {
         [TestFixture]
         public class Deserialize
@@ -314,7 +316,7 @@ namespace ByteDev.FormUrlEncoded.UnitTests
             [Test]
             public void WhenPropertyIsList_AndHasTwoValues_AndUsesNameAttribute_ThenSetSequence()
             {
-                const string data = "list=John,Peter";
+                const string data = "List=John,Peter";
 
                 var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
 
@@ -476,40 +478,121 @@ namespace ByteDev.FormUrlEncoded.UnitTests
         public class Deserialize_PropertyNameAttribute
         {
             [Test]
+            public void CorrectlyTestPropertyNameAttributeValidity()
+            {
+                PropertyInfo propertyNoAttr = typeof(TestDummyPropertyNameAttribute).GetProperty(nameof(TestDummyPropertyNameAttribute.NoAttributeProperty1));
+                Assert.IsFalse(propertyNoAttr.HasValidPropertyNameAttribute());
+                
+                PropertyInfo propertyNullAttr = typeof(TestDummyPropertyNameAttribute).GetProperty(nameof(TestDummyPropertyNameAttribute.NullAttributeProperty));
+                Assert.IsFalse(propertyNullAttr.HasValidPropertyNameAttribute());
+                
+                PropertyInfo propertyEmptyAttr = typeof(TestDummyPropertyNameAttribute).GetProperty(nameof(TestDummyPropertyNameAttribute.EmptyAttributeProperty));
+                Assert.IsFalse(propertyEmptyAttr.HasValidPropertyNameAttribute());
+                
+                PropertyInfo propertyHasNameAttr = typeof(TestDummyPropertyNameAttribute).GetProperty(nameof(TestDummyPropertyNameAttribute.DifferentNameAttributeProperty1));
+                Assert.IsTrue(propertyHasNameAttr.HasValidPropertyNameAttribute());
+            }
+
+            [Test]
             public void WhenUsesAttribute_ThenTakeNameFromAttribute()
             {
-                const string data = "Name=John&emailAddress=somewhere";
+                const string data = "DifferentName1=John&DifferentName2=somewhere";
 
                 var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
 
-                Assert.That(result.Name, Is.EqualTo("John"));
-                Assert.That(result.Email, Is.EqualTo("somewhere"));
+                Assert.That(result.DifferentNameAttributeProperty1, Is.EqualTo("John"));
+                Assert.That(result.DifferentNameAttributeProperty2, Is.EqualTo("somewhere"));
             }
 
             [Test]
             public void WhenAttributeNameIsNull_ThenTakeNameFromProperty()
             {
-                const string data = "Email=somewhere";
+                const string data = "NullAttributeProperty=somewhere";
 
-                var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttributeNull>(data);
+                var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
 
-                Assert.That(result.Email, Is.EqualTo("somewhere"));
+                Assert.That(result.NullAttributeProperty, Is.EqualTo("somewhere"));
             }
 
             [Test]
             public void WhenAttributeNameIsEmpty_ThenTakeNameFromProperty()
             {
-                const string data = "Email=somewhere";
+                const string data = "EmptyAttributeProperty=somewhere";
 
-                var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttributeEmpty>(data);
+                var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
 
-                Assert.That(result.Email, Is.EqualTo("somewhere"));
+                Assert.That(result.EmptyAttributeProperty, Is.EqualTo("somewhere"));
+            }
+
+            [Test]
+            public void WhenAttributeNameHasInclusiveAliases_ThenMatchAliasorSerializeName()
+            {
+                // Inclusive aliases should match on any alias plus the serializer name.
+                
+                // First Alias
+                string data = "IncAlias1=Oh+Hello";
+                var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
+                Assert.That(result.MultipleAliasesInclusiveProperty, Is.EqualTo("Oh Hello"));
+                
+                // Second Alias
+                data = "IncAlias2=Oh+Hello";
+                result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
+                Assert.That(result.MultipleAliasesInclusiveProperty, Is.EqualTo("Oh Hello"));
+                
+                // SerializerName
+                data = "MultipleAliasesInclusiveOut=Oh+Hello";
+                result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
+                Assert.That(result.MultipleAliasesInclusiveProperty, Is.EqualTo("Oh Hello"));
+            }
+
+            [Test]
+            public void WhenAttributeNameHasExclusiveAliases_ThenMatchAliasNotSerializeName()
+            {
+                // EXclusive aliases should match on any alias but not the serializer name.
+
+                // First Alias
+                var data = "ExcAlias1=Oh+Hello";
+                var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
+                Assert.That(result.MultipleAliasesExclusiveProperty, Is.EqualTo("Oh Hello"));
+                
+                // Second Alias
+                data = "ExcAlias2=Oh+Hello";
+                result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
+                Assert.That(result.MultipleAliasesExclusiveProperty, Is.EqualTo("Oh Hello"));
+
+                // SerializerName -- should NOT map
+                data = "MultipleAliasesExclusiveOut=Oh+Hello";
+                result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
+                Assert.That(result.MultipleAliasesExclusiveProperty, Is.Null);
+            }
+
+            [Test]
+            public void WhenUsesCaseInsensitive_DeserializeIgnoringKeyCase()
+            {
+                const string data = "differentName1=Text1&DifferentName2=Text2&EMPTYAttributeProperty=TextEmpty&nullattributeproperty=TextNull";
+
+                var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data, new DeserializeOptions() { StringComparer = System.StringComparer.OrdinalIgnoreCase});
+
+                Assert.That(result.DifferentNameAttributeProperty1, Is.EqualTo("Text1"));
+                Assert.That(result.DifferentNameAttributeProperty2, Is.EqualTo("Text2"));
+                Assert.That(result.EmptyAttributeProperty, Is.EqualTo("TextEmpty"));
+                Assert.That(result.NullAttributeProperty, Is.EqualTo("TextNull"));
             }
         }
 
         [TestFixture]
         public class Deserialize_IgnoreAttribute
         {
+            [Test]
+            public void CorrectlyTestIgnoreAttributeValidity()
+            {
+                PropertyInfo propertyNotIgnored = typeof(TestDummyIgnoreAttribute).GetProperty(nameof(TestDummyIgnoreAttribute.Name));
+                Assert.IsFalse(propertyNotIgnored.HasIgnoreAttribute());
+
+                PropertyInfo propertyIgnored = typeof(TestDummyIgnoreAttribute).GetProperty(nameof(TestDummyIgnoreAttribute.Age));
+                Assert.IsTrue(propertyIgnored.HasIgnoreAttribute());
+            }
+
             [Test]
             public void WhenIgnoreAttributeUsed_ThenIgnoreProperty()
             {

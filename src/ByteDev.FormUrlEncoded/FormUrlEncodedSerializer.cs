@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Caching;
 using System.Text;
+using System.Xml.Linq;
 using ByteDev.Reflection;
 
 namespace ByteDev.FormUrlEncoded
@@ -23,6 +26,8 @@ namespace ByteDev.FormUrlEncoded
         {
             return Serialize(obj, new SerializeOptions());
         }
+
+        // todo: integrate Cached map into Serialize routines
 
         /// <summary>
         /// Serialize an object to a form URL encoded string.
@@ -119,7 +124,8 @@ namespace ByteDev.FormUrlEncoded
         /// <exception cref="T:System.ArgumentException"><paramref name="formUrlEncodedData" /> is null or empty.</exception>
         /// <exception cref="T:System.ArgumentNullException"><paramref name="options" /> is null.</exception>
         /// <exception cref="T:System.FormatException">Matching property's type cannot be set to the value.</exception>
-        public static T Deserialize<T>(string formUrlEncodedData, DeserializeOptions options) where T : new()
+        public static T Deserialize<T>(string formUrlEncodedData, DeserializeOptions options)
+            where T : new()
         {
             if (string.IsNullOrEmpty(formUrlEncodedData))
                 throw new ArgumentException("Form URL encoded data was null or empty.", nameof(formUrlEncodedData));
@@ -131,18 +137,19 @@ namespace ByteDev.FormUrlEncoded
 
             var obj = new T();
 
-            List<PropertyInfo> propertiesWithAttr = typeof(T).GetPropertiesWithAttribute<FormUrlEncodedPropertyNameAttribute>().ToList();
+            SortedDictionary<string, string> propertyMap = GetPropertyKeyMapping<T>();
 
             foreach (string strPair in strPairs)
             {
-                var pair = new FormUrlEndcodedPair(strPair, options, propertiesWithAttr);
+                // todo: Maybe there's a clearer way to split the input pair and resolve the target property name
+                var pair = new FormUrlEncodedPair(strPair, options, propertyMap);
 
-                if (!pair.HasValue)
+                if (!pair.IsValid)
                     continue;
 
                 var propertyInfo = typeof(T).GetProperty(pair.Name);
 
-                if (propertyInfo == null || propertyInfo.HasIgnoreAttribute())
+                if (propertyInfo == null) // || propertyInfo.HasIgnoreAttribute()) -- won't be in map if it has ignore attribute
                     continue;
 
                 if (propertyInfo.HasValueConverterAttribute())
@@ -153,12 +160,69 @@ namespace ByteDev.FormUrlEncoded
                 } 
 
                 if (propertyInfo.IsTypeList())
+                {
                     obj.SetPropertyValue(pair.Name, pair.Value.ToList(','));
-                else
-                    obj.SetPropertyValue(pair.Name, pair.Value);
+                    continue;
+                }
+
+                // otherwise it's just a vanilla property, so set it
+                obj.SetPropertyValue(pair.Name, pair.Value);
             }
 
             return obj;
+        }
+
+        // =================== CACHEING ===================
+
+        private static MemoryCache _cache = MemoryCache.Default;
+        
+        /// <summary>
+        /// Retrieves PropertyKeyMapping for a class from the cache, rebuilding when necessary.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        private static SortedDictionary<string, string> GetPropertyKeyMapping<T>()
+            where T : new()
+        {
+            var key = typeof(T).FullName;
+            if (_cache.Contains(key))
+            {
+                return (SortedDictionary<string, string>)_cache.Get(key);
+            }
+            else
+            {
+                var data = BuildPropertyKeyMapping<T>();
+                _cache.Add(key, data, DateTimeOffset.Now.AddHours(1));
+                return data;
+            }
+        }
+
+        // todo: documentation -- url keys are case insensitive
+        private static SortedDictionary<string, string> BuildPropertyKeyMapping<T>()
+            where T : new()
+        {
+            var outDict = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            List<PropertyInfo> allProperties = typeof(T).GetProperties().ToList();
+            foreach (PropertyInfo prop in allProperties) 
+            {
+                if (!prop.HasIgnoreAttribute())
+                {                    
+                    if (prop.HasValidPropertyNameAttribute())
+                    {
+                        var aliases = prop.GetDeserializerKeyNames();
+                        foreach (string alias in aliases)
+                        {
+                            if (alias != null && alias != string.Empty)
+                                outDict[alias] = prop.Name;
+                        }
+                    } 
+                    else
+                    {
+                        outDict[prop.Name] = prop.Name;
+                    }
+                }
+            }
+            return outDict;
         }
 
         private static object GetEnumNumberFromName(object propertyValue)

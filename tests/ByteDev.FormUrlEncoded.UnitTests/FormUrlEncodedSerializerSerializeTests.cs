@@ -421,31 +421,36 @@ namespace ByteDev.FormUrlEncoded.UnitTests
             [Test]
             public void WhenAttributeNameSpecified_ThenTakeNameFromAttribute()
             {
-                var obj = new TestDummyPropertyNameAttribute { Name = "John", Email = "john@somewhere.com" };
+                var obj = new TestDummyPropertyNameAttribute 
+                { 
+                    DifferentNameAttributeProperty1 = "John", 
+                    DifferentNameAttributeProperty2 = "john@somewhere.com",
+                    MultipleAliasesExclusiveProperty = "ExclusivePropertyValue"
+                };
 
                 var result = FormUrlEncodedSerializer.Serialize(obj);
 
-                Assert.That(result, Is.EqualTo("Name=John&emailAddress=john%40somewhere.com"));
+                Assert.That(result, Is.EqualTo("DifferentName1=John&DifferentName2=john%40somewhere.com&MultipleAliasesExclusiveOut=ExclusivePropertyValue"));
             }
 
             [Test]
             public void WhenAttributeNameIsNull_ThenTakeNameFromProperty()
             {
-                var obj = new TestDummyPropertyNameAttributeNull { Email = "somewhere" };
+                var obj = new TestDummyPropertyNameAttribute { NullAttributeProperty = "somewhere" };
 
                 var result = FormUrlEncodedSerializer.Serialize(obj);
 
-                Assert.That(result, Is.EqualTo("Email=somewhere"));
+                Assert.That(result, Is.EqualTo("NullAttributeProperty=somewhere"));
             }
 
             [Test]
             public void WhenAttributeNameIsEmpty_ThenTakeNameFromProperty()
             {
-                var obj = new TestDummyPropertyNameAttributeEmpty { Email = "somewhere" };
+                var obj = new TestDummyPropertyNameAttribute { EmptyAttributeProperty = "somewhere" };
 
                 var result = FormUrlEncodedSerializer.Serialize(obj);
 
-                Assert.That(result, Is.EqualTo("Email=somewhere"));
+                Assert.That(result, Is.EqualTo("EmptyAttributeProperty=somewhere"));
             }
         }
 
