@@ -4,6 +4,8 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 
+// <InternalsVisibleTo Include="ByteDev.FormUrlEncoded.UnitTests" />
+
 namespace ByteDev.FormUrlEncoded.UnitTests
 {
     [TestFixture]

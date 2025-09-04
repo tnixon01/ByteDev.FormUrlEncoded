@@ -15,10 +15,22 @@
     <Version>1.1.2</Version>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="ByteDev.Reflection" Version="2.3.1" />
     <PackageReference Include="System.Runtime.Caching" Version="9.0.8" />
-    <InternalsVisibleTo Include="ByteDev.FormUrlEncoded.UnitTests"/>
+    <InternalsVisibleTo Include="ByteDev.FormUrlEncoded.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\.editorconfig" Link=".editorconfig" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ByteDev.Reflection;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -6,8 +7,6 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.Caching;
 using System.Text;
-using System.Xml.Linq;
-using ByteDev.Reflection;
 
 namespace ByteDev.FormUrlEncoded
 {
@@ -27,8 +26,6 @@ namespace ByteDev.FormUrlEncoded
             return Serialize(obj, new SerializeOptions());
         }
 
-        // todo: integrate Cached map into Serialize routines
-
         /// <summary>
         /// Serialize an object to a form URL encoded string.
         /// </summary>
@@ -47,55 +44,109 @@ namespace ByteDev.FormUrlEncoded
 
             var sb = new StringBuilder();
 
-            var properties = obj.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public);
+            SortedDictionary<string, string> propertyMap = GetSerializerPropertyKeyMapping(obj.GetType());
 
+            var properties = obj.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public);
             foreach (PropertyInfo propertyInfo in properties)
             {
-                if (propertyInfo.HasIgnoreAttribute())
-                    continue;
-
-                object propertyValue = propertyInfo.GetValue(obj);
-
-                if (propertyValue == null)
+                // looping through the hydrated object's properties
+                // use that as cacheKey from cached dictionary, anything that is in it is to be used
+                if (propertyMap.TryGetValue(propertyInfo.Name, out string mapName))
                 {
-                    if (options.IgnoreIfDefault || options.IgnoreIfNull)
-                        continue;
+                    object propertyValue = propertyInfo.GetValue(obj);
 
-                    sb.AppendKeyValue(propertyInfo.GetAttributeOrPropertyName(), string.Empty, options);
-                }
-                else
-                {
-                    if (options.IgnoreIfDefault)
+                    if (propertyValue == null)
                     {
-                        var valuesDefault = propertyValue.GetType().GetDefault();
-
-                        if (propertyValue.Equals(valuesDefault))
+                        if (options.IgnoreIfDefault || options.IgnoreIfNull)
+                        {
                             continue;
-                    }
+                        }
 
-                    if (options.EnumHandling == EnumHandling.Number && propertyInfo.PropertyType.IsEnum)
-                    {
-                        propertyValue = GetEnumNumberFromName(propertyValue);
-                    }
-
-                    if (propertyInfo.HasValueConverterAttribute())
-                    {
-                        var valueConverter = Attribute.GetCustomAttributes(propertyInfo, typeof(FormUrlEncodedValueConverterAttribute)).FirstOrDefault() as FormUrlEncodedValueConverterAttribute;
-                        sb.AppendKeySequenceValue(propertyInfo.GetAttributeOrPropertyName(), valueConverter.ConvertToString(propertyValue), options);
-                        continue;
-                    }
-
-                    if (propertyInfo.IsTypeList())
-                    {
-                        var sequence = propertyValue as IEnumerable;
-
-                        sb.AppendKeySequenceValue(propertyInfo.GetAttributeOrPropertyName(), sequence.ToCsv(), options);
+                        sb.AppendKeyValue(mapName, string.Empty, options);
                     }
                     else
                     {
-                        sb.AppendKeyValue(propertyInfo.GetAttributeOrPropertyName(), propertyValue.ToString(), options);
+                        if (options.IgnoreIfDefault)
+                        {
+                            var valuesDefault = propertyValue.GetType().GetDefault();
+
+                            if (propertyValue.Equals(valuesDefault))
+                                continue;
+                        }
+
+                        if (options.EnumHandling == EnumHandling.Number && propertyInfo.PropertyType.IsEnum)
+                        {
+                            propertyValue = GetEnumNumberFromName(propertyValue);
+                        }
+
+                        if (propertyInfo.HasValueConverterAttribute())
+                        {
+                            var valueConverter = Attribute.GetCustomAttributes(propertyInfo, typeof(FormUrlEncodedValueConverterAttribute)).FirstOrDefault() as FormUrlEncodedValueConverterAttribute;
+                            sb.AppendKeySequenceValue(mapName, valueConverter.ConvertToString(propertyValue), options);
+                            continue;
+                        }
+
+                        if (propertyInfo.IsTypeList())
+                        {
+                            var sequence = propertyValue as IEnumerable;
+
+                            sb.AppendKeySequenceValue(propertyInfo.GetAttributeOrPropertyName(), sequence.ToCsv(), options);
+                        }
+                        else
+                        {
+                            sb.AppendKeyValue(propertyInfo.GetAttributeOrPropertyName(), propertyValue.ToString(), options);
+                        }
                     }
                 }
+
+                // original code below here ---------
+                #region Original Code
+                // if (propertyInfo.HasIgnoreAttribute())
+                //     continue;
+
+                // object propertyValue = propertyInfo.GetValue(obj);
+
+                // if (propertyValue == null)
+                // {
+                //     if (options.IgnoreIfDefault || options.IgnoreIfNull)
+                //         continue;
+
+                // sb.AppendKeyValue(propertyInfo.GetAttributeOrPropertyName(), string.Empty, options);
+                // }
+                // else
+                // {
+                //     if (options.IgnoreIfDefault)
+                //     {
+                //         var valuesDefault = propertyValue.GetType().GetDefault();
+
+                // if (propertyValue.Equals(valuesDefault))
+                //             continue;
+                //     }
+
+                // if (options.EnumHandling == EnumHandling.Number && propertyInfo.PropertyType.IsEnum)
+                //     {
+                //         propertyValue = GetEnumNumberFromName(propertyValue);
+                //     }
+
+                // if (propertyInfo.HasValueConverterAttribute())
+                //     {
+                //         var valueConverter = Attribute.GetCustomAttributes(propertyInfo, typeof(FormUrlEncodedValueConverterAttribute)).FirstOrDefault() as FormUrlEncodedValueConverterAttribute;
+                //         sb.AppendKeySequenceValue(propertyInfo.GetAttributeOrPropertyName(), valueConverter.ConvertToString(propertyValue), options);
+                //         continue;
+                //     }
+
+                // if (propertyInfo.IsTypeList())
+                //     {
+                //         var sequence = propertyValue as IEnumerable;
+
+                // sb.AppendKeySequenceValue(propertyInfo.GetAttributeOrPropertyName(), sequence.ToCsv(), options);
+                //     }
+                //     else
+                //     {
+                //         sb.AppendKeyValue(propertyInfo.GetAttributeOrPropertyName(), propertyValue.ToString(), options);
+                //     }
+                // }
+                #endregion
             }
 
             return sb.ToString();
@@ -137,76 +188,82 @@ namespace ByteDev.FormUrlEncoded
 
             var obj = new T();
 
-            SortedDictionary<string, string> propertyMap = GetPropertyKeyMapping<T>();
+            SortedDictionary<string, string> propertyMap = GetDeserializerPropertyKeyMapping(typeof(T));
 
             foreach (string strPair in strPairs)
             {
-                // todo: Maybe there's a clearer way to split the input pair and resolve the target property name
                 var pair = new FormUrlEncodedPair(strPair, options, propertyMap);
 
                 if (!pair.IsValid)
                     continue;
 
-                var propertyInfo = typeof(T).GetProperty(pair.Name);
+                var propertyInfo = typeof(T).GetProperty(pair.PropertyName);
 
                 if (propertyInfo == null) // || propertyInfo.HasIgnoreAttribute()) -- won't be in map if it has ignore attribute
                     continue;
 
                 if (propertyInfo.HasValueConverterAttribute())
-                {                    
+                {
                     var valueConverter = Attribute.GetCustomAttributes(propertyInfo, typeof(FormUrlEncodedValueConverterAttribute)).FirstOrDefault() as FormUrlEncodedValueConverterAttribute;
-                    obj.SetPropertyValue(pair.Name, valueConverter.ConvertFromString(pair.Value));
+                    obj.SetPropertyValue(pair.PropertyName, valueConverter.ConvertFromString(pair.Value));
                     continue;
                 } 
 
                 if (propertyInfo.IsTypeList())
                 {
-                    obj.SetPropertyValue(pair.Name, pair.Value.ToList(','));
+                    obj.SetPropertyValue(pair.PropertyName, pair.Value.ToList(','));
                     continue;
                 }
 
                 // otherwise it's just a vanilla property, so set it
-                obj.SetPropertyValue(pair.Name, pair.Value);
+                obj.SetPropertyValue(pair.PropertyName, pair.Value);
             }
 
             return obj;
         }
 
-        // =================== CACHEING ===================
+        private static readonly MemoryCache _cache = MemoryCache.Default;
 
-        private static MemoryCache _cache = MemoryCache.Default;
-        
+        #region Deserializer Cache
+
         /// <summary>
         /// Retrieves PropertyKeyMapping for a class from the cache, rebuilding when necessary.
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        private static SortedDictionary<string, string> GetPropertyKeyMapping<T>()
-            where T : new()
+        private static SortedDictionary<string, string> GetDeserializerPropertyKeyMapping(Type type)
         {
-            var key = typeof(T).FullName;
-            if (_cache.Contains(key))
+            string cacheKey = "FormUrlEncodedDeserializerMaps." + type.FullName;
+            object fromCache = _cache.Get(cacheKey);
+            if (fromCache != null) // (_cache.Contains(cacheKey))
             {
-                return (SortedDictionary<string, string>)_cache.Get(key);
+                Debug.Print($"D -- {type.Name} pulled from cache");
+                return (SortedDictionary<string, string>)fromCache;
             }
             else
             {
-                var data = BuildPropertyKeyMapping<T>();
-                _cache.Add(key, data, DateTimeOffset.Now.AddHours(1));
+                SortedDictionary<string, string> data = BuildDeserializerPropertyKeyMapping(type);
+                _cache.Add(cacheKey, data, DateTimeOffset.Now.AddHours(1));
+                Debug.Print($"D {type.Name} added to cache -----");
                 return data;
             }
         }
 
-        // todo: documentation -- url keys are case insensitive
-        private static SortedDictionary<string, string> BuildPropertyKeyMapping<T>()
-            where T : new()
+        /// <summary>
+        /// Builds property key map in the deserialization direction (UrlKeys-to-Properties). 
+        /// URL keys are generally treated as case-insensitive, so the resulting dictionary ignores case.
+        /// </summary>
+        /// <param name="type">Type from which to construct a key-to-property map</param>
+        private static SortedDictionary<string, string> BuildDeserializerPropertyKeyMapping(Type type)
         {
+            if (type == null)
+                throw new ArgumentNullException("parameter 'type' in BuildDeserializerPropertyKeyMapping.");
+
             var outDict = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-            List<PropertyInfo> allProperties = typeof(T).GetProperties().ToList();
-            foreach (PropertyInfo prop in allProperties) 
+            List<PropertyInfo> allProperties = type.GetProperties().ToList();
+            foreach (PropertyInfo prop in allProperties)
             {
                 if (!prop.HasIgnoreAttribute())
-                {                    
+                {
                     if (prop.HasValidPropertyNameAttribute())
                     {
                         var aliases = prop.GetDeserializerKeyNames();
@@ -215,7 +272,7 @@ namespace ByteDev.FormUrlEncoded
                             if (alias != null && alias != string.Empty)
                                 outDict[alias] = prop.Name;
                         }
-                    } 
+                    }
                     else
                     {
                         outDict[prop.Name] = prop.Name;
@@ -224,6 +281,61 @@ namespace ByteDev.FormUrlEncoded
             }
             return outDict;
         }
+
+        #endregion
+
+        #region Serializer Cache
+
+        private static SortedDictionary<string, string> GetSerializerPropertyKeyMapping(Type type)
+        {
+            string cacheKey = "FormUrlEncodedSerializerMaps." + type.FullName;
+            object fromCache = _cache.Get(cacheKey);
+            if (fromCache != null) // (_cache.Contains(cacheKey))
+            {
+                Debug.Print($"S ++ {type.Name} pulled from cache");
+                return (SortedDictionary<string, string>)fromCache;
+            }
+            else
+            {
+                var data = BuildSerializerPropertyKeyMapping(type);
+                _cache.Add(cacheKey, data, DateTimeOffset.Now.AddHours(1));
+                Debug.Print($"S {type.Name} added to cache +++++");
+                return data;
+            }
+        }
+
+        /// <summary>
+        /// Builds property key map in the serialization direction (Properties-to-UrlKeys). 
+        /// Property names are treated as case-insensitive.
+        /// </summary>
+        /// <param name="type">Type from which to construct a property-to-key map</param>
+        private static SortedDictionary<string, string> BuildSerializerPropertyKeyMapping(Type type)
+        {
+            if (type == null)
+                throw new ArgumentNullException("parameter 'type' in BuildSerializerPropertyKeyMapping.");
+
+            SortedDictionary<string, string> outDict = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            List<PropertyInfo> allProperties = type.GetProperties().ToList();
+            foreach (PropertyInfo prop in allProperties)
+            {
+                if (!prop.HasIgnoreAttribute())
+                {
+                    if (prop.HasValidPropertyNameAttribute())
+                    {
+                        var attr = prop.GetAttribute<FormUrlEncodedPropertyNameAttribute>();
+                        outDict[prop.Name] = attr.SerializerName;
+                    }
+                    else
+                    {
+                        outDict[prop.Name] = prop.Name;
+                    }
+                }
+            }
+            return outDict;
+        }
+
+        #endregion
 
         private static object GetEnumNumberFromName(object propertyValue)
         {
