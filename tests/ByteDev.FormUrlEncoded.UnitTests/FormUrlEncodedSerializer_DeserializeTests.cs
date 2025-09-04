@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Metadata;
+using System.Runtime.Caching;
 using ByteDev.Collections;
 using ByteDev.FormUrlEncoded.UnitTests.TestObjects;
 using ByteDev.FormUrlEncoded.UnitTests.TestObjects.AttributeObjects;
@@ -477,6 +479,18 @@ namespace ByteDev.FormUrlEncoded.UnitTests
         [TestFixture]
         public class Deserialize_PropertyNameAttribute
         {
+            private void ClearCache()
+            {
+                // Get all keys currently in the default MemoryCache
+                List<string> cacheKeys = MemoryCache.Default.Select(kvp => kvp.Key).ToList();
+
+                // Remove each entry
+                foreach (string cacheKey in cacheKeys)
+                {
+                    MemoryCache.Default.Remove(cacheKey);
+                }
+            }
+
             [Test]
             public void CorrectlyTestPropertyNameAttributeValidity()
             {
@@ -496,6 +510,8 @@ namespace ByteDev.FormUrlEncoded.UnitTests
             [Test]
             public void WhenUsesAttribute_ThenTakeNameFromAttribute()
             {
+                ClearCache(); 
+
                 const string data = "DifferentName1=John&DifferentName2=somewhere";
 
                 var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
@@ -507,6 +523,8 @@ namespace ByteDev.FormUrlEncoded.UnitTests
             [Test]
             public void WhenAttributeNameIsNull_ThenTakeNameFromProperty()
             {
+                ClearCache();
+
                 const string data = "NullAttributeProperty=somewhere";
 
                 var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
@@ -517,6 +535,8 @@ namespace ByteDev.FormUrlEncoded.UnitTests
             [Test]
             public void WhenAttributeNameIsEmpty_ThenTakeNameFromProperty()
             {
+                ClearCache();
+
                 const string data = "EmptyAttributeProperty=somewhere";
 
                 var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
@@ -528,7 +548,9 @@ namespace ByteDev.FormUrlEncoded.UnitTests
             public void WhenAttributeNameHasInclusiveAliases_ThenMatchAliasorSerializeName()
             {
                 // Inclusive aliases should match on any alias plus the serializer name.
-                
+
+                ClearCache();
+
                 // First Alias
                 string data = "IncAlias1=Oh+Hello";
                 var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
@@ -549,6 +571,7 @@ namespace ByteDev.FormUrlEncoded.UnitTests
             public void WhenAttributeNameHasExclusiveAliases_ThenMatchAliasNotSerializeName()
             {
                 // EXclusive aliases should match on any alias but not the serializer name.
+                ClearCache();
 
                 // First Alias
                 var data = "ExcAlias1=Oh+Hello";
@@ -569,6 +592,8 @@ namespace ByteDev.FormUrlEncoded.UnitTests
             [Test]
             public void WhenUsesCaseInsensitive_DeserializeIgnoringKeyCase()
             {
+                ClearCache();
+
                 const string data = "differentName1=Text1&DifferentName2=Text2&EMPTYAttributeProperty=TextEmpty&nullattributeproperty=TextNull";
 
                 var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data, new DeserializeOptions() { StringComparer = System.StringComparer.OrdinalIgnoreCase});
@@ -577,6 +602,27 @@ namespace ByteDev.FormUrlEncoded.UnitTests
                 Assert.That(result.DifferentNameAttributeProperty2, Is.EqualTo("Text2"));
                 Assert.That(result.EmptyAttributeProperty, Is.EqualTo("TextEmpty"));
                 Assert.That(result.NullAttributeProperty, Is.EqualTo("TextNull"));
+            }
+
+            [Test]
+            public void WhenMultipleAliasesInSingleString_ThenUseAllAsDeserializers()
+            {
+                ClearCache();
+
+                // First Alias
+                var data = "MultipleAliasesIn1=Oh+Hello";
+                var result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
+                Assert.That(result.MultipleAliasesSingleStringProperty, Is.EqualTo("Oh Hello"));
+
+                // Second Alias
+                data = "MultipleAliasesIn2=Oh+Hi";
+                result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
+                Assert.That(result.MultipleAliasesSingleStringProperty, Is.EqualTo("Oh Hi"));
+
+                // Property Name
+                data = "MultipleAliasesExclusiveProperty=Oh+No";
+                result = FormUrlEncodedSerializer.Deserialize<TestDummyPropertyNameAttribute>(data);
+                Assert.That(result.MultipleAliasesSingleStringProperty, Is.Null);
             }
         }
 

@@ -64,6 +64,10 @@ public class Employee
 
     [FormUrlColorValueConverter] // inherited from FormUrlEncodedValueConverterAttribute
     public int OfficeWallColor { get; set; }
+
+    [FormUrlEncodedPropertyName("Mailstop, Floor")] // Mailstop or Floor will deserialize to .OfficeArea; .OfficeArea will serialize to Mailstop
+    public string OfficeArea { get; set; }
+
 }
 ```
 
@@ -76,12 +80,13 @@ var employee = new Employee
     Age = 50,
     Email = "john@somewhere.com",
     PayGrade = 5,
-    OfficeWallColor = System.Drawing.Color.LightSteelBlue
+    OfficeWallColor = System.Drawing.Color.LightSteelBlue,
+    OfficeArea = "7 West"
 };
 
 string data = FormUrlEncodedSerializer.Serialize(employee);
 
-// data == "Name=John+Smith&Age=50&emailAddress=john%40somewhere.com&OfficeWallColor=LightSteelBlue"
+// data == "Name=John+Smith&Age=50&emailAddress=john%40somewhere.com&OfficeWallColor=LightSteelBlue&Mailstop=7+West"
 ```
 
 ```csharp

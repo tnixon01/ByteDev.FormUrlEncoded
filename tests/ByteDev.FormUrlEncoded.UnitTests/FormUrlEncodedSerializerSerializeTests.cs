@@ -3,6 +3,8 @@ using ByteDev.FormUrlEncoded.UnitTests.TestObjects.AttributeObjects;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.Caching;
 
 // <InternalsVisibleTo Include="ByteDev.FormUrlEncoded.UnitTests" />
 
@@ -420,11 +422,25 @@ namespace ByteDev.FormUrlEncoded.UnitTests
         [TestFixture]
         public class Serialize_PropertyNameAttribute
         {
+            private void ClearCache()
+            {
+                // Get all keys currently in the default MemoryCache
+                List<string> cacheKeys = MemoryCache.Default.Select(kvp => kvp.Key).ToList();
+
+                // Remove each entry
+                foreach (string cacheKey in cacheKeys)
+                {
+                    MemoryCache.Default.Remove(cacheKey);
+                }
+            }
+
             [Test]
             public void WhenAttributeNameSpecified_ThenTakeNameFromAttribute()
             {
-                var obj = new TestDummyPropertyNameAttribute 
-                { 
+                ClearCache();
+
+                var obj = new TestDummyPropertyNameAttribute
+                {
                     DifferentNameAttributeProperty1 = "John", 
                     DifferentNameAttributeProperty2 = "john@somewhere.com",
                     MultipleAliasesExclusiveProperty = "ExclusivePropertyValue"
@@ -438,6 +454,8 @@ namespace ByteDev.FormUrlEncoded.UnitTests
             [Test]
             public void WhenAttributeNameIsNull_ThenTakeNameFromProperty()
             {
+                ClearCache();
+
                 var obj = new TestDummyPropertyNameAttribute { NullAttributeProperty = "somewhere" };
 
                 var result = FormUrlEncodedSerializer.Serialize(obj);
@@ -448,11 +466,25 @@ namespace ByteDev.FormUrlEncoded.UnitTests
             [Test]
             public void WhenAttributeNameIsEmpty_ThenTakeNameFromProperty()
             {
+                ClearCache();
+
                 var obj = new TestDummyPropertyNameAttribute { EmptyAttributeProperty = "somewhere" };
 
                 var result = FormUrlEncodedSerializer.Serialize(obj);
 
                 Assert.That(result, Is.EqualTo("EmptyAttributeProperty=somewhere"));
+            }
+
+            [Test]
+            public void WhenMultipleAliasesInSingleString_ThenUseFirstAsSerializer()
+            {
+                ClearCache();
+
+                var obj = new TestDummyPropertyNameAttribute { MultipleAliasesSingleStringProperty = "a thing" };
+
+                var result = FormUrlEncodedSerializer.Serialize(obj);
+
+                Assert.That(result, Is.EqualTo("MultipleAliasesIn1=a+thing"));
             }
         }
 

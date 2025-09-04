@@ -31,7 +31,7 @@ namespace ByteDev.FormUrlEncoded
             var pairArray = pair.Split('=');
             // pairArray[0] is the urlKey, pairArray[1] is the value (still urlEncoded).
 
-            // See if the urlKey matches a mapping in the properties
+            // See if the urlKey matches a mapping in the properties -- if it's not there, it's not meant to map
             if (propertyMap.TryGetValue(pairArray[0], out string keyName))
                 PropertyName = keyName;
 

@@ -1,5 +1,18 @@
 # Release Notes
 
+## 1.3.0 - 4 September 2025
+
+Breaking changes:
+- (None) 
+
+New features:
+- Add support for multiple deserialization aliases on properties. This is a work-around for some legacy systems that use slightly different naming conventions to submit similar data.
+- Add key-to-property map caching for improved performance (theoretical, the performance improvement is not tested).
+
+Bug fixes / internal changes:
+- Significant changes to FormUrlEncodedPair that render the prior iteration obsolete. However, since that is not used externally, the changes are not breaking.
+- Changes to serialization logic to incorporate caching.
+
 ## 1.1.0 - ???
 
 Breaking changes:

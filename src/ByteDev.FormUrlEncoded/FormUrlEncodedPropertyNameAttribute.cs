@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml.Linq;
 
 namespace ByteDev.FormUrlEncoded
 {
@@ -8,6 +9,7 @@ namespace ByteDev.FormUrlEncoded
     // * FormUrlEncodedPropertyName() -- ignore, use property name
     // * FormUrlEncodedPropertyName(null) -- ignore, use property name
     // * FormUrlEncodedPropertyName("AltName") -- Alternate name to use while serializing and deserializing
+    // * FormUrlEncodedPropertyName("AltName, AltName2") -- Alternate name to use while serializing and deserializing
     // * FormUrlEncodedPropertyName("AltOutName", "AltInName1,AltInName2") -- Alternate names to use while serializing and deserializing
     // * FormUrlEncodedPropertyName("AltOutName", "AltInName1,AltInName2", false) -- Alternate names to use while serializing and deserializing, will not include serializer name in deserializers
 
@@ -52,15 +54,15 @@ namespace ByteDev.FormUrlEncoded
         public FormUrlEncodedPropertyNameAttribute(string name)
         {
             // if this is a CSV with multiple entries, then first is serializer and all are deserializers
-            if (name != null && name != string.Empty)
+            if (name != null)
             {
-                string[] names = name.Split(',');
+                string[] names = name.Replace(" ", string.Empty).Split(',');
                 if (names.Length == 1)
                 {
                     SerializerName = name;
                     DeserializerNames = new List<string>() { name };
                 }
-                else
+                else if (names.Length > 1)
                 {
                     SerializerName = names[0];
                     DeserializerNames = names.ToList();
@@ -93,8 +95,12 @@ namespace ByteDev.FormUrlEncoded
                                                    string deserialzerNames, 
                                                    bool includeSerializerName)
         {
+            if (serializerName.Split(',').Length > 1)
+                throw new ArgumentException("Argument 'serializerName' contains more than one name");
+
             SerializerName = serializerName;
-            DeserializerNames = deserialzerNames.Split(',').ToList();
+            DeserializerNames = deserialzerNames.Replace(" ", string.Empty).Split(',').ToList();
+
             if (includeSerializerName)
                 DeserializerNames.Insert(0, SerializerName);
         }

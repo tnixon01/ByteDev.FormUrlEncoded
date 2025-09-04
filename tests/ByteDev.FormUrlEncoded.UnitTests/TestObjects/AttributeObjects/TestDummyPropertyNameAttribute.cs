@@ -52,10 +52,17 @@ namespace ByteDev.FormUrlEncoded.UnitTests.TestObjects.AttributeObjects
         public string MultipleAliasesInclusiveProperty { get; set; }
 
         /// <summary>
-        /// The <see cref="FormUrlEncodedPropertyNameAttribute"/> applied to this property is includes
+        /// The <see cref="FormUrlEncodedPropertyNameAttribute"/> applied to this property includes
         /// Deserializer aliases "ExcAlias1,ExcAlias2" and excludes the serializer name "MultipleAliasesExclusiveOut".
         /// </summary>
         [FormUrlEncodedPropertyName("MultipleAliasesExclusiveOut", "ExcAlias1,ExcAlias2", false)]
         public string MultipleAliasesExclusiveProperty { get; set; }
+
+        /// <summary>
+        /// The <see cref="FormUrlEncodedPropertyNameAttribute"/> applied to this property includes
+        /// "MultipleAliasesIn1, MultipleAliasesIn2" in a single string.
+        /// </summary>
+        [FormUrlEncodedPropertyName("MultipleAliasesIn1, MultipleAliasesIn2")]
+        public string MultipleAliasesSingleStringProperty { get; set; }
     }
 }
